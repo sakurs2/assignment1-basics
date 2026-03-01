@@ -14,8 +14,6 @@ class Tokenizer:
     __slots__ = (
         "_vocab",
         "_reverse_vocab",
-        "_merges",
-        "_merges_index",
         "_special_tokens",
         "_split_tokens",
     )
@@ -45,19 +43,6 @@ class Tokenizer:
             for token in new_add:
                 self._reverse_vocab[token] = len(self._vocab)
                 self._vocab[len(self._vocab)] = token
-
-        self._merges = merges
-        self._merges_index: Dict[bytes, list[bytes]] = {}
-        for i in range(len(merges)):
-            if merges[i][0] not in self._merges_index.keys():
-                self._merges_index[merges[i][0]] = [merges[i][1]]
-            else:
-                self._merges_index[merges[i][0]].append(merges[i][1])
-
-        for key in self._merges_index.keys():
-            self._merges_index[key] = sorted(
-                self._merges_index[key], key=lambda x: len(x), reverse=True
-            )
 
     @classmethod
     def from_files(
@@ -93,13 +78,12 @@ class Tokenizer:
             best_rank = len(self._vocab)
 
             for i in range(len(tokens) - 1):
-                pair = (tokens[i], tokens[i + 1])
-                if pair in self._merges and (
-                    best_pair is None
-                    or self._reverse_vocab[tokens[i] + tokens[i + 1]] < best_rank
+                pair_bytes = tokens[i] + tokens[i + 1]
+                if pair_bytes in self._reverse_vocab.keys() and (
+                    best_pair is None or self._reverse_vocab[pair_bytes] < best_rank
                 ):
-                    best_pair = pair
-                    best_rank = self._reverse_vocab[tokens[i] + tokens[i + 1]]
+                    best_pair = (tokens[i], tokens[i + 1])
+                    best_rank = self._reverse_vocab[pair_bytes]
 
             if best_pair is None:
                 break
