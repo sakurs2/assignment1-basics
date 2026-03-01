@@ -70,6 +70,10 @@ def find_chunk_boundaries(
     return sorted(set(chunk_boundaries))
 
 
+N_BYTES = 256
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
+
 def train_bpe(
     input_path: str | os.PathLike,
     vocab_size: int,
@@ -77,9 +81,6 @@ def train_bpe(
     **kwargs,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     assert vocab_size > len(special_tokens) + 26, "vocab size error"
-
-    N_BYTES = 256
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
     vocab: dict[int, bytes] = {i: bytes([i]) for i in range(N_BYTES)}
     merges: list[tuple[bytes, bytes]] = []
