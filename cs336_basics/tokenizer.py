@@ -10,24 +10,8 @@ from dataclasses import dataclass, field
 from .pretokenization import PAT
 
 
-CHILD_SIZE = 256
-
-
-@dataclass(slots=True)
-class DictTreeNode:
-    childs: np.ndarray = field(
-        default_factory=lambda: np.zeros(CHILD_SIZE, dtype=np.uint32)
-    )  # value means nodes position
-
-    # means pos in vocab
-    # value - 1 == vocab key
-    value: int = field(default=0)
-
-
 class Tokenizer:
     __slots__ = (
-        "_nodes",
-        "_base_node",
         "_vocab",
         "_reverse_vocab",
         "_merges",
@@ -62,20 +46,9 @@ class Tokenizer:
                 self._reverse_vocab[token] = len(self._vocab)
                 self._vocab[len(self._vocab)] = token
 
-        self._base_node = DictTreeNode()
-        self._nodes: list[DictTreeNode] = [self._base_node]
-
         self._merges = merges
         self._merges_index: Dict[bytes, list[bytes]] = {}
         for i in range(len(merges)):
-            # if (
-            #     merges[i][0] == "H".encode()
-            #     or merges[i][0] == "He".encode()
-            #     or merges[i][0] == "Hel".encode()
-            #     or merges[i][0] == "Hell".encode()
-            # ):
-            #     print(f"\n merges: {merges[i]}")
-
             if merges[i][0] not in self._merges_index.keys():
                 self._merges_index[merges[i][0]] = [merges[i][1]]
             else:
@@ -85,18 +58,6 @@ class Tokenizer:
             self._merges_index[key] = sorted(
                 self._merges_index[key], key=lambda x: len(x), reverse=True
             )
-
-        # Build dict tree
-        for key, value in vocab.items():
-            encodes = list(value)
-            base_node = self._base_node
-            for byte in encodes:
-                if base_node.childs[byte] == 0:
-                    self._nodes.append(DictTreeNode())
-                    base_node.childs[byte] = len(self._nodes) - 1
-
-                base_node = self._nodes[base_node.childs[byte]]
-            base_node.value = key + 1
 
     @classmethod
     def from_files(
@@ -116,38 +77,45 @@ class Tokenizer:
 
         res: list[int] = []
         for token in tokens:
-            encodes = token.encode()
-            if encodes in self._reverse_vocab.keys():
-                res.append(self._reverse_vocab[encodes])
-                continue
-            idx = 1
-            cur = bytes([encodes[0]])
-            while idx < len(encodes):
-                find_merge = False
-                if cur in self._merges_index.keys():
-                    for val in self._merges_index[cur]:
-                        if (
-                            idx + len(val) - 1 <= len(encodes)
-                            and encodes[idx : (idx + len(val))] == val
-                        ):
-                            cur += val
-                            idx += len(val)
-                            find_merge = True
-                            break
-
-                if find_merge:
-                    continue
-                # no match
-                res.append(self._reverse_vocab[cur])
-                cur = bytes([encodes[idx]])
-                idx += 1
-            res.append(self._reverse_vocab[cur])
-            if "Leland" in token:
-                print(
-                    f"\n ==========> res: {res}, token: {token}, mp: {self._merges_index["L".encode()]},1004: {self._vocab[1004]}, 1044: {self._vocab[1044]}, 406: {self._vocab[406]}, 8822: {self._vocab[8822]}"
-                )
+            res.extend(self._encode_token(token))
 
         return res
+
+    def _encode_token(self, text: str) -> list[int]:
+        encodes = text.encode()
+        if encodes in self._reverse_vocab.keys():
+            return [self._reverse_vocab[encodes]]
+
+        tokens: list[bytes] = [bytes([b]) for b in encodes]
+
+        while (len(tokens)) > 2:
+            best_pair = None
+            best_rank = len(self._vocab)
+
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                if pair in self._merges and (
+                    best_pair is None
+                    or self._reverse_vocab[tokens[i] + tokens[i + 1]] < best_rank
+                ):
+                    best_pair = pair
+                    best_rank = self._reverse_vocab[tokens[i] + tokens[i + 1]]
+
+            if best_pair is None:
+                break
+
+            new_tokens = []
+            i = 0
+            while i < len(tokens):
+                if i < len(tokens) - 1 and (tokens[i], tokens[i + 1]) == best_pair:
+                    new_tokens.append(tokens[i] + tokens[i + 1])
+                    i += 2
+                else:
+                    new_tokens.append(tokens[i])
+                    i += 1
+            tokens = new_tokens
+
+        return [self._reverse_vocab[t] for t in tokens]
 
     def _get_byte_tokens(self, text: str) -> list[str]:
         if self._special_tokens and self._special_tokens != "":
@@ -168,32 +136,9 @@ class Tokenizer:
         for text in iterable:
             tokens: list[str] = self._get_byte_tokens(text)
             for token in tokens:
-                encodes = token.encode()
-                if encodes in self._reverse_vocab.keys():
-                    yield self._reverse_vocab[encodes]
-                    continue
-                idx = 1
-                cur = bytes([encodes[0]])
-                while idx < len(encodes):
-                    find_merge = False
-                    if cur in self._merges_index.keys():
-                        for val in self._merges_index[cur]:
-                            if (
-                                idx + len(val) - 1 <= len(encodes)
-                                and encodes[idx : (idx + len(val))] == val
-                            ):
-                                cur += val
-                                idx += len(val)
-                                find_merge = True
-                                break
-
-                    if find_merge:
-                        continue
-                    # no match
-                    yield self._reverse_vocab[cur]
-                    cur = bytes([encodes[idx]])
-                    idx += 1
-                yield self._reverse_vocab[cur]
+                res = self._encode_token(token)
+                for item in res:
+                    yield item
 
     def decode(self, ids: list[int]) -> str:
         output: bytes = b""
