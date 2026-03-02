@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from .pretokenization import PAT
 
 
+# TODO:
+# - optimize:
+#   - 1. 构建三个数据结构：vocab，reverse_vocab和dict[merge_pair, int]
+#   - 2. 利用上述数据结构优化代码
+#   - 3. merge pair时采用循环数据节省空间
+#   - 4. 并行优化
 class Tokenizer:
     __slots__ = (
         "_vocab",
