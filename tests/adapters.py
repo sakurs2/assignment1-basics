@@ -18,6 +18,7 @@ from cs336_basics.swiglu import SwiGlu
 from cs336_basics.rope import Rope
 from cs336_basics.softmax import Softmax
 from cs336_basics.scaled_dot_product_attention import ScaledDotProductAttention
+from cs336_basics.multihead_self_attention import MultiheadSelfAttention
 
 
 def run_linear(
@@ -151,7 +152,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    multi_attn = MultiheadSelfAttention(d_model, num_heads)
+    multi_attn.W_q.w = torch.nn.Parameter(q_proj_weight)
+    multi_attn.W_k.w = torch.nn.Parameter(k_proj_weight)
+    multi_attn.W_v.w = torch.nn.Parameter(v_proj_weight)
+    multi_attn.W_o.w = torch.nn.Parameter(o_proj_weight)
+    return multi_attn.forward(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -191,7 +197,14 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    multi_attn = MultiheadSelfAttention(
+        d_model, num_heads, theta, max_seq_len, token_positions
+    )
+    multi_attn.W_q.w = torch.nn.Parameter(q_proj_weight)
+    multi_attn.W_k.w = torch.nn.Parameter(k_proj_weight)
+    multi_attn.W_v.w = torch.nn.Parameter(v_proj_weight)
+    multi_attn.W_o.w = torch.nn.Parameter(o_proj_weight)
+    return multi_attn.forward(in_features)
 
 
 def run_rope(

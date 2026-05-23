@@ -23,7 +23,7 @@ class Rope(torch.nn.Module):
         freqs_cis = self.freqs_cis[token_positions]
         x_complex = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
         x_rotated = x_complex * freqs_cis
-        return torch.view_as_real(x_rotated).flatten(-2)
+        return torch.view_as_real(x_rotated).flatten(-2).type_as(x)
 
 
 if __name__ == "__main__":
