@@ -19,6 +19,8 @@ from cs336_basics.rope import Rope
 from cs336_basics.softmax import Softmax
 from cs336_basics.scaled_dot_product_attention import ScaledDotProductAttention
 from cs336_basics.multihead_self_attention import MultiheadSelfAttention
+from cs336_basics.transformer_block import TransformerBlock
+from cs336_basics.transformer import Transformer
 
 
 def run_linear(
@@ -300,7 +302,21 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    L = in_features.shape[-2]
+    token_positions = torch.arange(0, L, dtype=torch.int)
+    trans = TransformerBlock(
+        d_model, num_heads, d_ff, max_seq_len, theta, token_positions
+    )
+    trans.attn.W_q.w = torch.nn.Parameter(weights["attn.q_proj.weight"])
+    trans.attn.W_k.w = torch.nn.Parameter(weights["attn.k_proj.weight"])
+    trans.attn.W_v.w = torch.nn.Parameter(weights["attn.v_proj.weight"])
+    trans.attn.W_o.w = torch.nn.Parameter(weights["attn.output_proj.weight"])
+    trans.rmsnorm1.g = torch.nn.Parameter(weights["ln1.weight"])
+    trans.rmsnorm2.g = torch.nn.Parameter(weights["ln2.weight"])
+    trans.swiglu.w1 = torch.nn.Parameter(weights["ffn.w1.weight"])
+    trans.swiglu.w2 = torch.nn.Parameter(weights["ffn.w2.weight"])
+    trans.swiglu.w3 = torch.nn.Parameter(weights["ffn.w3.weight"])
+    return trans(in_features)
 
 
 def run_transformer_lm(
@@ -382,7 +398,52 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    L = in_indices.shape[-1]
+    token_positions = torch.arange(0, L, dtype=torch.int)
+    trans = Transformer(
+        vocab_size,
+        d_model,
+        num_heads,
+        d_ff,
+        context_length,
+        num_layers,
+        rope_theta,
+        token_positions,
+    )
+
+    trans.embedding.embedding = torch.nn.Parameter(weights["token_embeddings.weight"])
+    trans.norm.g = torch.nn.Parameter(weights["ln_final.weight"])
+    trans.o.w = torch.nn.Parameter(weights["lm_head.weight"])
+    for i in range(num_layers):
+        trans.blocks[i].attn.W_q.w = torch.nn.Parameter(
+            weights[f"layers.{i}.attn.q_proj.weight"]
+        )
+        trans.blocks[i].attn.W_k.w = torch.nn.Parameter(
+            weights[f"layers.{i}.attn.k_proj.weight"]
+        )
+        trans.blocks[i].attn.W_v.w = torch.nn.Parameter(
+            weights[f"layers.{i}.attn.v_proj.weight"]
+        )
+        trans.blocks[i].attn.W_o.w = torch.nn.Parameter(
+            weights[f"layers.{i}.attn.output_proj.weight"]
+        )
+        trans.blocks[i].rmsnorm1.g = torch.nn.Parameter(
+            weights[f"layers.{i}.ln1.weight"]
+        )
+        trans.blocks[i].rmsnorm2.g = torch.nn.Parameter(
+            weights[f"layers.{i}.ln2.weight"]
+        )
+        trans.blocks[i].swiglu.w1 = torch.nn.Parameter(
+            weights[f"layers.{i}.ffn.w1.weight"]
+        )
+        trans.blocks[i].swiglu.w2 = torch.nn.Parameter(
+            weights[f"layers.{i}.ffn.w2.weight"]
+        )
+        trans.blocks[i].swiglu.w3 = torch.nn.Parameter(
+            weights[f"layers.{i}.ffn.w3.weight"]
+        )
+
+    return trans(in_indices)
 
 
 def run_rmsnorm(

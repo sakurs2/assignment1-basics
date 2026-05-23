@@ -4,8 +4,6 @@ from einops import einsum
 from .scaled_dot_product_attention import ScaledDotProductAttention
 from .rope import Rope
 from .linear import Linear
-from jaxtyping import Bool, Float, Int
-from torch import Tensor
 
 
 class MultiheadSelfAttention(torch.nn.Module):
