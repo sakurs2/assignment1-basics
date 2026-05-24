@@ -22,6 +22,9 @@ from cs336_basics.multihead_self_attention import MultiheadSelfAttention
 from cs336_basics.transformer_block import TransformerBlock
 from cs336_basics.transformer import Transformer
 from cs336_basics.cross_entropy import CrossEntropy
+from cs336_basics.AdamW import AdamW
+from cs336_basics.learning_rate_schedule import LearningRateSchedule
+from cs336_basics.gradient_clipping import GradientClipping
 
 
 def run_linear(
@@ -555,14 +558,14 @@ def run_gradient_clipping(
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    return GradientClipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> Any:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
@@ -590,7 +593,9 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return LearningRateSchedule(
+        it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters
+    )
 
 
 def run_save_checkpoint(
