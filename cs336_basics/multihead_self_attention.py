@@ -61,7 +61,7 @@ class MultiheadSelfAttention(torch.nn.Module):
             K = self.rope(K, self.token_positions)
 
         # attn mask
-        mask = torch.tril(torch.ones(L, L, dtype=torch.bool))
+        mask = torch.tril(torch.ones(L, L, dtype=torch.bool, device=x.device))
         # shape (B, num_heads, L, head_dim)
         out = ScaledDotProductAttention(Q, K, V, mask)
         out = out.transpose(1, 2).contiguous().view(B, L, D)

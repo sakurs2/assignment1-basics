@@ -59,3 +59,23 @@ def one_hot(
     return torch.zeros(
         *indices.shape, num_classes, dtype=dtype, device=indices.device
     ).scatter_(-1, indices.unsqueeze(-1), 1)
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
+
+
+def to_jsonable(obj):
+    """把 dict 里的 bytes 转成 str，递归处理"""
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8")  # 纯二进制改用 base64，见下
+    if isinstance(obj, dict):
+        return {k: to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [to_jsonable(x) for x in obj]
+    return obj
